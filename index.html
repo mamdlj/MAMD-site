@@ -754,27 +754,27 @@ function renderCompanyOrder(){
   const mine=DB.companyOrders.filter(o=>o.empId===CUR.empId);
   document.getElementById('pageContent').innerHTML=`
   <div class="card" style="margin-bottom:14px">
-    <h3>🏢 سفارش شرکت — هرچی نیاز دارید بنویسید</h3>
-    <div class="field"><label>نام مشتری / سفارش‌دهنده</label><input id="co_customer" value="${(getMyEmp()||{}).name||CUR.name}"></div>
-    <div class="form-row"><div class="field"><label>منطقه</label><input id="co_region" placeholder="مثلاً: طبقه ۲ / واحد فروش"></div><div class="field"><label>تلفن (اختیاری)</label><input id="co_phone"></div></div>
-    <div class="field"><label>شرح کامل سفارش غذا</label><textarea id="co_desc" rows="4" placeholder="مثلاً: ۲۰ پرس چلو کباب، ۵ پرس گیاهی، ساعت ۱۳ تحویل بشه..."></textarea></div>
+    <h3>🏢 سفارش شرکت</h3>
+    <div class="form-row"><div class="field"><label>نام</label><input id="co_customer" value="${(getMyEmp()||{}).name||CUR.name}"></div><div class="field"><label>منطقه</label><input id="co_region" placeholder="مثلاً: طبقه ۲ / واحد فروش"></div></div>
+    <div class="field"><label>تعداد غذا</label><input id="co_qty" type="number" min="1" value="1"></div>
+    <div class="field"><label>توضیحات</label><textarea id="co_desc" rows="4" placeholder="مثلاً: چلو کباب، ساعت ۱۳ تحویل بشه..."></textarea></div>
     <button class="btn-sm btn-accent" style="width:100%" onclick="submitCompanyOrder()">ثبت سفارش شرکت</button>
   </div>
-  <div class="card"><h3>سفارش‌های قبلی من</h3><div class="table-wrap"><table><tr><th>مشتری</th><th>منطقه</th><th>شرح</th><th>تاریخ</th><th>وضعیت</th></tr>
-  ${mine.slice().reverse().map(o=>`<tr><td>${o.customer}</td><td>${o.region||'-'}</td><td>${o.desc}</td><td>${o.date}</td><td>${coStatusPill(o.status)}</td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">سفارشی ثبت نشده</div></td></tr>'}</table></div></div>`;
+  <div class="card"><h3>سفارش‌های قبلی من</h3><div class="table-wrap"><table><tr><th>نام</th><th>منطقه</th><th>تعداد</th><th>توضیحات</th><th>تاریخ</th><th>وضعیت</th></tr>
+  ${mine.slice().reverse().map(o=>`<tr><td>${o.customer}</td><td>${o.region||'-'}</td><td>${fmt(o.qty)}</td><td>${o.desc}</td><td>${o.date}</td><td>${coStatusPill(o.status)}</td></tr>`).join('')||'<tr><td colspan="6"><div class="empty">سفارشی ثبت نشده</div></td></tr>'}</table></div></div>`;
 }
 function submitCompanyOrder(){
   const customer=document.getElementById('co_customer').value.trim();
   const desc=document.getElementById('co_desc').value.trim();
   if(!customer||!desc){alert('نام و شرح سفارش الزامی است');return;}
-  const o={id:uid('CO'),empId:CUR.empId||'',customer,region:document.getElementById('co_region').value.trim(),phone:document.getElementById('co_phone').value.trim(),desc,date:today(),time:nowTime(),status:'ثبت شده'};
+  const o={id:uid('CO'),empId:CUR.empId||'',customer,region:document.getElementById('co_region').value.trim(),qty:+document.getElementById('co_qty').value||1,desc,date:today(),time:nowTime(),status:'ثبت شده'};
   DB.companyOrders.push(o);log(`سفارش شرکت جدید از ${customer} ثبت شد`);saveDB();renderCompanyOrder();
 }
 function renderCompanyOrders(){
   document.getElementById('pageContent').innerHTML=`
   <div class="toolbar"><button class="btn-sm" onclick="goPage('customers')">👥 لیست مشتری‌ها</button></div>
-  <div class="card"><h3>سفارش‌های شرکت</h3><div class="table-wrap"><table><tr><th>شماره</th><th>مشتری</th><th>منطقه</th><th>تلفن</th><th>شرح سفارش</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr>
-  ${DB.companyOrders.slice().reverse().map(o=>`<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.region||'-'}</td><td>${o.phone||'-'}</td><td>${o.desc}</td><td>${o.date}</td><td>${coStatusPill(o.status)}</td>
+  <div class="card"><h3>سفارش‌های شرکت</h3><div class="table-wrap"><table><tr><th>شماره</th><th>نام</th><th>منطقه</th><th>تعداد</th><th>توضیحات</th><th>تاریخ</th><th>وضعیت</th><th>عملیات</th></tr>
+  ${DB.companyOrders.slice().reverse().map(o=>`<tr><td>${o.id}</td><td>${o.customer}</td><td>${o.region||'-'}</td><td>${fmt(o.qty)}</td><td>${o.desc}</td><td>${o.date}</td><td>${coStatusPill(o.status)}</td>
   <td>${coNextBtn(o)}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty">سفارشی ثبت نشده</div></td></tr>'}</table></div></div>`;
 }
 function coNextBtn(o){
