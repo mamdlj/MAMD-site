@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ثبت سفارش | FoodStock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#f4f6f9;--panel:#fff;--text:#1c2433;--sub:#6b7686;--border:#e5e9f0;--primary:#2f6fed;--primary-d:#1f52c2;--green:#1fa970;--radius:16px;--shadow:0 10px 30px rgba(20,30,60,.08)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:'Vazirmatn',sans-serif;background:linear-gradient(135deg,#eef2fb,#f7f9fc);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:100%;max-width:460px}
+.logo{width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,var(--primary),#5b8def);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 14px;box-shadow:var(--shadow)}
+h1{text-align:center;font-size:20px;margin:0 0 4px}
+p.sub{text-align:center;color:var(--sub);font-size:13px;margin:0 0 22px}
+.card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px 22px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;color:var(--sub);margin-bottom:6px;font-weight:600}
+.field input,.field textarea{width:100%;padding:12px 13px;border:1.5px solid var(--border);border-radius:10px;background:#fbfbfd;color:var(--text);font-size:14px;font-family:inherit}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--primary);background:#fff}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{width:100%;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,var(--primary),#5b8def);color:#fff;box-shadow:0 8px 20px rgba(47,111,237,.3)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.status{text-align:center;font-size:11.5px;color:var(--sub);margin-bottom:14px}
+.success{display:none;text-align:center;padding:20px 10px}
+.success .tick{font-size:44px;margin-bottom:10px}
+.success h2{margin:0 0 8px;font-size:18px;color:var(--green)}
+.success p{color:var(--sub);font-size:13.5px;margin:0 0 18px}
+.err{color:#e5484d;font-size:12.5px;margin-top:8px;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">🍽️</div>
+  <h1>ثبت سفارش غذا</h1>
+  <p class="sub">فرم سفارش مشتریان — بدون نیاز به ورود به سیستم</p>
+  <div class="card">
+    <div class="status" id="connStatus">🔄 در حال اتصال...</div>
+
+    <div id="formBox">
+      <div class="field"><label>نام مشتری</label><input id="name" placeholder="نام شما"></div>
+      <div class="row2">
+        <div class="field"><label>شماره تماس</label><input id="phone" placeholder="09xxxxxxxxx"></div>
+        <div class="field"><label>منطقه</label><input id="region" placeholder="مثلاً: طبقه ۲ / آدرس"></div>
+      </div>
+      <div class="field"><label>تعداد غذا</label><input id="qty" type="number" min="1" value="1"></div>
+      <div class="field"><label>شرح سفارش</label><textarea id="desc" rows="4" placeholder="مثلاً: ۲ پرس چلو مرغ، ۱ پرس قورمه‌سبزی، ساعت ۱۳ لازم دارم..."></textarea></div>
+      <div class="err" id="errBox"></div>
+      <button class="btn" id="submitBtn" onclick="submitOrder()" disabled>در حال اتصال...</button>
+    </div>
+
+    <div class="success" id="successBox">
+      <div class="tick">✅</div>
+      <h2>سفارش شما ثبت شد</h2>
+      <p>به‌زودی توسط مجموعه بررسی و تأیید می‌شه.</p>
+      <button class="btn" onclick="resetForm()">ثبت سفارش جدید</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDbehUT1Q8ejdC_s7GaGDDqSMIwltKofbI",
+  authDomain: "foodstock-manager-e33ed.firebaseapp.com",
+  projectId: "foodstock-manager-e33ed",
+  storageBucket: "foodstock-manager-e33ed.firebasestorage.app",
+  messagingSenderId: "400375301624",
+  appId: "1:400375301624:web:ee7972a363adaf8f8d820d"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.settings({experimentalAutoDetectLongPolling:true, useFetchStreams:false});
+
+function ready(){
+  document.getElementById('connStatus').textContent='🟢 آماده دریافت سفارش';
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=false; btn.textContent='ثبت سفارش';
+}
+// Firestore compat SDK connects lazily; a lightweight read confirms connectivity.
+db.collection('publicOrders').limit(1).get().then(ready).catch(err=>{
+  console.error(err);
+  document.getElementById('connStatus').textContent='🔴 خطا در اتصال — لطفاً صفحه را رفرش کنید';
+});
+
+function showErr(msg){const e=document.getElementById('errBox');e.textContent=msg;e.style.display='block';}
+function hideErr(){document.getElementById('errBox').style.display='none';}
+
+async function submitOrder(){
+  hideErr();
+  const name=document.getElementById('name').value.trim();
+  const desc=document.getElementById('desc').value.trim();
+  if(!name){showErr('لطفاً نام خود را وارد کنید');return;}
+  if(!desc){showErr('لطفاً شرح سفارش را بنویسید');return;}
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true; btn.textContent='در حال ثبت...';
+  try{
+    await db.collection('publicOrders').add({
+      name,
+      phone:document.getElementById('phone').value.trim(),
+      region:document.getElementById('region').value.trim(),
+      qty:+document.getElementById('qty').value||1,
+      desc,
+      status:'ثبت شده',
+      source:'public',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      dateLabel:new Date().toLocaleDateString('fa-IR'),
+      timeLabel:new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})
+    });
+    document.getElementById('formBox').style.display='none';
+    document.getElementById('successBox').style.display='block';
+  }catch(err){
+    console.error(err);
+    showErr('ثبت سفارش با خطا مواجه شد. لطفاً دوباره تلاش کنید.');
+    btn.disabled=false; btn.textContent='ثبت سفارش';
+  }
+}
+function resetForm(){
+  document.getElementById('name').value='';
+  document.getElementById('phone').value='';
+  document.getElementById('region').value='';
+  document.getElementById('qty').value=1;
+  document.getElementById('desc').value='';
+  document.getElementById('formBox').style.display='block';
+  document.getElementById('successBox').style.display='none';
+}
+</script>
+</body>
+</html>
