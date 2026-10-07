@@ -2,26 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function activeUser() {
-      return signedIn() && userDoc().active == true;
-    }
-
-    function employee() {
-      return activeUser() && userDoc().role == 'EMPLOYEE';
-    }
-
-    function sameRestaurant(id) {
-      return activeUser() && userDoc().restaurantId == id;
-    }
-
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function activeUser() { return signedIn() && userDoc().active == true; }
+    function employee() { return activeUser() && userDoc().role == 'EMPLOYEE'; }
+    function sameRestaurant(id) { return activeUser() && userDoc().restaurantId == id; }
     function ownerOrManager(id) {
       return sameRestaurant(id) &&
         userDoc().role in ['SUPER_ADMIN', 'RESTAURANT_OWNER', 'MANAGER'];
@@ -29,13 +14,22 @@ service cloud.firestore {
 
     function employeeOrderCreate() {
       return employee()
-        && request.resource.data.restaurantId == userDoc().restaurantId;
+        && request.resource.data.restaurantId == userDoc().restaurantId
+        && request.resource.data.createdBy == request.auth.uid;
     }
 
     function employeeOrderUpdate() {
       return employee()
         && resource.data.restaurantId == userDoc().restaurantId
-        && request.resource.data.restaurantId == resource.data.restaurantId;
+        && request.resource.data.restaurantId == resource.data.restaurantId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'customerName',
+          'customerPhone',
+          'notes',
+          'paymentStatus'
+        ]);
     }
 
     match /roles/{roleId} {
