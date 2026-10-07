@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isSuperAdmin() { return signedIn() && userDoc().role == 'SUPER_ADMIN'; }
+    function sameRestaurant(id) { return signedIn() && (isSuperAdmin() || userDoc().restaurantId == id); }
+    function ownerOrManager(id) { return sameRestaurant(id) && (isSuperAdmin() || userDoc().role in ['RESTAURANT_OWNER','MANAGER']); }
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if isSuperAdmin();
+    }
+    match /restaurants/{id} {
+      allow read: if sameRestaurant(id);
+      allow create: if signedIn();
+      allow update: if ownerOrManager(id);
+      allow delete: if isSuperAdmin();
+    }
+    match /products/{id} {
+      allow read: if resource.data.available == true || (signedIn() && sameRestaurant(resource.data.restaurantId));
+      allow create: if signedIn() && ownerOrManager(request.resource.data.restaurantId);
+      allow update, delete: if signedIn() && ownerOrManager(resource.data.restaurantId);
+    }
+    match /orders/{id} {
+      allow create: if signedIn() && sameRestaurant(request.resource.data.restaurantId);
+      allow read, update: if signedIn() && sameRestaurant(resource.data.restaurantId);
+      allow delete: if signedIn() && ownerOrManager(resource.data.restaurantId);
+    }
+    match /inventory/{id} {
+      allow read: if signedIn() && sameRestaurant(resource.data.restaurantId);
+      allow create: if signedIn() && ownerOrManager(request.resource.data.restaurantId);
+      allow update, delete: if signedIn() && ownerOrManager(resource.data.restaurantId);
+    }
+    match /employees/{id} {
+      allow read: if signedIn() && sameRestaurant(resource.data.restaurantId);
+      allow create: if signedIn() && ownerOrManager(request.resource.data.restaurantId);
+      allow update, delete: if signedIn() && ownerOrManager(resource.data.restaurantId);
+    }
+  }
+}
