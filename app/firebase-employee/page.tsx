@@ -1,5 +1,6 @@
 "use client";
 
+import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
@@ -78,11 +79,21 @@ export default function FirebaseEmployeePage() {
   );
 
   useEffect(() => {
-    return onAuthStateChanged(firebaseAuth, async (user) => {
+    let unsubscribeData: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(firebaseAuth, async (user) => {
+      unsubscribeData?.();
+      unsubscribeData = undefined;
+
       if (!user) {
+        setAuthUser(null);
+        setProfile(null);
         router.replace("/firebase-login");
         return;
       }
+
+      setLoading(true);
+      setError("");
 
       try {
         const profileSnap = await getDoc(doc(firestore, "users", user.uid));
@@ -104,71 +115,58 @@ export default function FirebaseEmployeePage() {
         const restaurantId = data.restaurantId;
 
         const unsubProducts = onSnapshot(
-          query(
-            collection(firestore, "products"),
-            where("restaurantId", "==", restaurantId),
-            limit(100)
-          ),
+          query(collection(firestore, "products"), where("restaurantId", "==", restaurantId), limit(100)),
           (snapshot) => {
-            setProducts(
-              snapshot.docs.map((item) => ({
-                id: item.id,
-                ...(item.data() as Omit<Product, "id">),
-              }))
-            );
+            setProducts(snapshot.docs.map((item) => ({
+              id: item.id,
+              ...(item.data() as Omit<Product, "id">),
+            })));
           },
           (snapshotError) => setError(snapshotError.message)
         );
 
         const unsubOrders = onSnapshot(
-          query(
-            collection(firestore, "orders"),
-            where("restaurantId", "==", restaurantId),
-            limit(100)
-          ),
+          query(collection(firestore, "orders"), where("restaurantId", "==", restaurantId), limit(100)),
           (snapshot) => {
-            setOrders(
-              snapshot.docs.map((item) => ({
-                id: item.id,
-                ...(item.data() as Omit<Order, "id">),
-              }))
-            );
+            setOrders(snapshot.docs.map((item) => ({
+              id: item.id,
+              ...(item.data() as Omit<Order, "id">),
+            })));
           },
           (snapshotError) => setError(snapshotError.message)
         );
 
         const unsubInventory = onSnapshot(
-          query(
-            collection(firestore, "inventory"),
-            where("restaurantId", "==", restaurantId),
-            limit(100)
-          ),
+          query(collection(firestore, "inventory"), where("restaurantId", "==", restaurantId), limit(100)),
           (snapshot) => {
-            setInventory(
-              snapshot.docs.map((item) => ({
-                id: item.id,
-                ...(item.data() as Omit<Inventory, "id">),
-              }))
-            );
+            setInventory(snapshot.docs.map((item) => ({
+              id: item.id,
+              ...(item.data() as Omit<Inventory, "id">),
+            })));
           },
           (snapshotError) => setError(snapshotError.message)
         );
 
-        setLoading(false);
-
-        return () => {
+        unsubscribeData = () => {
           unsubProducts();
           unsubOrders();
           unsubInventory();
         };
+
+        setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "دریافت اطلاعات ناموفق بود.");
         setLoading(false);
       }
     });
+
+    return () => {
+      unsubscribeData?.();
+      unsubscribeAuth();
+    };
   }, [router]);
 
-  async function createOrder(event: React.FormEvent<HTMLFormElement>) {
+  async function createOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!authUser || !profile?.restaurantId || !selected || quantity < 1) return;
 
@@ -191,15 +189,13 @@ export default function FirebaseEmployeePage() {
         serviceFee: 0,
         total: unitPrice * quantity,
         paymentStatus: "PENDING",
-        items: [
-          {
-            productId: selected.id,
-            productName: selected.name || "محصول",
-            quantity,
-            unitPrice,
-            total: unitPrice * quantity,
-          },
-        ],
+        items: [{
+          productId: selected.id,
+          productName: selected.name || "محصول",
+          quantity,
+          unitPrice,
+          total: unitPrice * quantity,
+        }],
         createdAt: serverTimestamp(),
       });
 
@@ -239,9 +235,7 @@ export default function FirebaseEmployeePage() {
           <div>
             <h1 style={{ marginBottom: 6 }}>پنل کارمند</h1>
             <div>{profile?.name || authUser?.email}</div>
-            <small style={{ color: "#6b7280" }}>
-              {profile?.role} · {profile?.restaurantId}
-            </small>
+            <small style={{ color: "#6b7280" }}>{profile?.role} · {profile?.restaurantId}</small>
           </div>
           <button className="btn" onClick={logout}>خروج</button>
         </div>
