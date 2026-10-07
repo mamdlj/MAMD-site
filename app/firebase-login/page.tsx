@@ -6,6 +6,17 @@ import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { firebaseAuth, firestore } from "@/lib/firebase";
 
+function firebaseErrorMessage(code: string) {
+  const messages: Record<string, string> = {
+    "auth/invalid-credential": "ایمیل یا رمز عبور صحیح نیست.",
+    "auth/invalid-email": "فرمت ایمیل صحیح نیست.",
+    "auth/user-disabled": "این حساب غیرفعال شده است.",
+    "auth/too-many-requests": "تعداد تلاش‌ها زیاد است؛ کمی بعد دوباره امتحان کنید.",
+    "auth/network-request-failed": "ارتباط با Firebase برقرار نشد.",
+  };
+  return messages[code] || "ورود ناموفق بود.";
+}
+
 export default function FirebaseLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -26,20 +37,36 @@ export default function FirebaseLoginPage() {
       );
 
       const snapshot = await getDoc(doc(firestore, "users", credential.user.uid));
+
       if (!snapshot.exists()) {
         await firebaseAuth.signOut();
-        throw new Error("حساب کاربری در Firestore پیدا نشد.");
+        setError("پروفایل کاربر در Firestore ساخته نشده است.");
+        return;
       }
 
       const profile = snapshot.data();
-      if (profile.role !== "EMPLOYEE" || profile.active !== true) {
+      if (
+        profile.role !== "EMPLOYEE" ||
+        profile.active !== true ||
+        typeof profile.restaurantId !== "string" ||
+        !profile.restaurantId
+      ) {
         await firebaseAuth.signOut();
-        throw new Error("این حساب دسترسی کارمند فعال را ندارد.");
+        setError("این حساب دسترسی کارمند فعال را ندارد.");
+        return;
       }
 
       router.replace("/firebase-employee");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "ورود ناموفق بود.");
+      const code =
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        typeof err.code === "string"
+          ? err.code
+          : "";
+
+      setError(code ? firebaseErrorMessage(code) : "ورود ناموفق بود.");
     } finally {
       setLoading(false);
     }
@@ -49,9 +76,7 @@ export default function FirebaseLoginPage() {
     <main className="container" style={{ maxWidth: 480 }}>
       <div className="card">
         <h1>ورود کارمند</h1>
-        <p style={{ color: "#6b7280" }}>
-          ورود با Firebase Authentication
-        </p>
+        <p style={{ color: "#6b7280" }}>ورود امن با Firebase Authentication</p>
 
         <form onSubmit={submit} className="grid">
           <input
