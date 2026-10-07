@@ -1,1 +1,0 @@
-import Link from "next/link";export default function Home(){return <main className="container"><div className="card" style={{padding:40,textAlign:"center"}}><h1>FoodStock Manager</h1><p className="muted">مدیریت هوشمند رستوران، منوی دیجیتال، سفارش و انبار</p><Link className="btn" href="/login">ورود به سیستم</Link></div></main>}
