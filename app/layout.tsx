@@ -1,0 +1,1 @@
+import "./globals.css";import type {Metadata} from "next";export const metadata:Metadata={title:"FoodStock Manager",description:"مدیریت رستوران، منوی دیجیتال، سفارش و انبار",manifest:"/manifest.webmanifest"};export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fa" dir="rtl"><body>{children}</body></html>}
